@@ -1,3 +1,4 @@
+pub const std = @import("std");
 pub const abi = @import("abi.zig");
 pub const errors = @import("errors.zig");
 pub const sdk = @import("sdk.zig");
@@ -20,4 +21,8 @@ pub const StreamRecvFn = abi.StreamRecvFn;
 
 test {
     _ = @import("sdk.zig");
+}
+
+pub fn init(allocator: std.mem.Allocator) void {
+    abi._allocator = allocator;
 }

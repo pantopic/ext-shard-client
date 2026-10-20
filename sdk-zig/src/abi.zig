@@ -1,3 +1,4 @@
+const std = @import("std");
 pub const StreamRecvFn = *const fn (name: []const u8, data: []const u8, val: u64) void;
 pub const AsyncRecvFn = *const fn (name: []const u8, data: []const u8, val: u64, err: ?[]const u8) void;
 
@@ -28,6 +29,7 @@ var streamName: [stream_name_cap]u8 = .{0} ** stream_name_cap;
 
 pub var stream_recv: ?StreamRecvFn = null;
 pub var async_recv: ?AsyncRecvFn = null;
+pub var _allocator: std.mem.Allocator = undefined;
 
 export fn __shard_client() u32 {
     meta[0] = @intCast(@intFromPtr(&val));
@@ -84,6 +86,15 @@ pub fn setData(v: []const u8) void {
 }
 
 pub fn getData() []u8 {
+    if (dataLen > dataCap) {
+        var res: []u8 = _allocator.alloc(u8, dataLen) catch unreachable;
+        var n: u32 = 0;
+        while (n < dataLen) : (n += dataCap) {
+            @memcpy(res[n..@min(n + dataCap, dataLen)], data[0..@min(dataCap, dataLen - n)]);
+            __shard_client_next();
+        }
+        return res;
+    }
     return data[0..dataLen];
 }
 
@@ -114,6 +125,7 @@ pub fn getStreamName() []const u8 {
     return streamName[0..streamNameLen];
 }
 
+extern "pantopic/ext-shard-client" fn __shard_client_next() void;
 extern "pantopic/ext-shard-client" fn __shard_client_read() void;
 extern "pantopic/ext-shard-client" fn __shard_client_read_local() void;
 extern "pantopic/ext-shard-client" fn __shard_client_apply() void;

@@ -90,16 +90,16 @@ func setData(v []byte) {
 }
 
 func getData() []byte {
-	// if dataLen > dataCap {
-	// 	res := make([]byte, dataLen)
-	// 	var i uint32
-	// 	for i = 0; i < dataLen; {
-	// 		copy(res[i*dataCap:], data[:min(dataCap, dataLen-(i*dataCap))])
-	// 		i += dataLen
-	// 		_buffer_continue()
-	// 	}
-	// 	return res
-	// }
+	if dataLen > dataCap {
+		res := make([]byte, dataLen)
+		var n uint32
+		for n = 0; n < dataLen; {
+			copy(res[n:], data[:min(dataCap, dataLen-n)])
+			n += dataCap
+			_next()
+		}
+		return res
+	}
 	return data[:dataLen]
 }
 
@@ -128,6 +128,10 @@ func setStreamName(name []byte) {
 	copy(streamName[:len(name)], name)
 	streamNameLen = uint32(len(name))
 }
+
+//go:wasm-module pantopic/ext-shard-client
+//export __shard_client_next
+func _next()
 
 //go:wasm-module pantopic/ext-shard-client
 //export __shard_client_read

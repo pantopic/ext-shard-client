@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/logbn/zongzi v0.0.20
-	github.com/pantopic/wazero-cluster/host v0.0.0-20260711151336-9bd8f3a69a34
+	github.com/pantopic/ext-cluster/host-wazero v0.0.1
 	github.com/pantopic/wazero-pool v0.0.6
 	github.com/tetratelabs/wazero v1.12.0
 )

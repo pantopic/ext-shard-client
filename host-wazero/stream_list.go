@@ -22,7 +22,7 @@ func newStreamList() *streamList {
 
 type streamList struct {
 	items map[string]*stream
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 func (sl *streamList) release() {
@@ -57,6 +57,8 @@ func (sl *streamList) new(ctx context.Context, name []byte) (s *stream, err erro
 }
 
 func (sl *streamList) find(name []byte) (s *stream, err error) {
+	sl.mutex.RLock()
+	defer sl.mutex.RUnlock()
 	s, ok := sl.items[base64.URLEncoding.EncodeToString(name)]
 	if !ok {
 		err = ErrStreamNotFound

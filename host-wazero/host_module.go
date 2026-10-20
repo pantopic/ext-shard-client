@@ -1,6 +1,7 @@
 package wazero_shard_client
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 
-	"github.com/pantopic/wazero-cluster/host"
+	"github.com/pantopic/ext-cluster/host-wazero"
 	"github.com/pantopic/wazero-pool"
 )
 
@@ -22,6 +23,7 @@ const Name = "pantopic/ext-shard-client"
 var (
 	ctxKeyMeta       = Name + `/meta`
 	ctxKeyStreamList = Name + `/stream_list`
+	ctxKeyBuffer     = Name + `/buffer`
 )
 
 type meta struct {
@@ -78,16 +80,15 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 	register := func(name string, fn func(ctx context.Context, m api.Module, stack []uint64)) {
 		builder = builder.NewFunctionBuilder().WithGoModuleFunction(api.GoModuleFunc(fn), nil, nil).Export(name)
 	}
-	asyncRecv := func(ctx context.Context, name, data []byte, val uint64, err error) {
+	asyncRecv := func(ctx context.Context, name []byte, val uint64, data []byte, err error) {
 		meta := get[*meta](ctx, ctxKeyMeta)
 		wazeropool.FromContext(ctx).Run(func(mod api.Module) {
 			setStreamName(mod, meta, name)
 			setVal(mod, meta, val)
-			if err = setData(mod, meta, data); err != nil {
-				return
-			}
+			setData(ctx, mod, meta, data)
 			setErr(mod, meta, err)
 			if _, err = mod.ExportedFunction("__shard_client_async_recv").Call(ctx); err != nil {
+				slog.Error("Error calling __shard_client_async_recv", "err", err.Error())
 				return
 			}
 			if err = getErr(mod, meta); err != nil {
@@ -97,6 +98,10 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		})
 	}
 	for name, fn := range map[string]any{
+		"__shard_client_next": func(ctx context.Context, m api.Module, meta *meta) {
+			buf := dataBuf(m, meta)
+			copy(buf[:cap(buf)], get[*bytes.Buffer](ctx, ctxKeyBuffer).Next(cap(buf)))
+		},
 		"__shard_client_apply": func(ctx context.Context, client zongzi.ShardClient, cmd []byte) (val uint64, res []byte, err error) {
 			return client.Apply(ctx, cmd)
 		},
@@ -109,19 +114,19 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		"__shard_client_async_apply": func(ctx context.Context, client zongzi.ShardClient, cmd, name []byte) {
 			go func() {
 				val, data, err := client.Apply(ctx, cmd)
-				asyncRecv(ctx, name, data, val, err)
+				asyncRecv(ctx, name, val, data, err)
 			}()
 		},
 		"__shard_client_async_read": func(ctx context.Context, client zongzi.ShardClient, query, name []byte) {
 			go func() {
 				val, data, err := client.Read(ctx, query, false)
-				asyncRecv(ctx, name, data, val, err)
+				asyncRecv(ctx, name, val, data, err)
 			}()
 		},
 		"__shard_client_async_read_local": func(ctx context.Context, client zongzi.ShardClient, query, name []byte) {
 			go func() {
 				val, data, err := client.Read(ctx, query, true)
-				asyncRecv(ctx, name, data, val, err)
+				asyncRecv(ctx, name, val, data, err)
 			}()
 		},
 		"__shard_client_stream_open": func(ctx context.Context, client zongzi.ShardClient, name []byte) (err error) {
@@ -146,17 +151,18 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 						wazeropool.FromContext(ctx).Run(func(mod api.Module) {
 							setStreamName(mod, meta, name)
 							setVal(mod, meta, res.Value)
-							setData(mod, meta, res.Data)
+							setData(ctx, mod, meta, res.Data)
 							setErr(mod, meta, nil)
 							if _, err = mod.ExportedFunction("__shard_client_stream_recv").Call(ctx); err != nil {
 								return
 							}
-							if err = getErr(mod, meta); err != nil {
-								slog.Error("Error receiving stream message", "streamName", s.name, "err", err.Error())
-								s.close()
-								return
-							}
+							err = getErr(mod, meta)
 						})
+						if err != nil {
+							slog.Error("Error receiving stream message", "streamName", s.name, "err", err.Error())
+							s.close()
+							return
+						}
 					case <-s.ctx.Done():
 						return
 					}
@@ -203,6 +209,10 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		},
 	} {
 		switch fn := fn.(type) {
+		case func(context.Context, api.Module, *meta):
+			register(name, func(ctx context.Context, m api.Module, stack []uint64) {
+				fn(ctx, m, get[*meta](ctx, ctxKeyMeta))
+			})
 		case func(context.Context, zongzi.ShardClient, []byte) (uint64, []byte, error):
 			register(name, func(ctx context.Context, m api.Module, stack []uint64) {
 				meta := get[*meta](ctx, ctxKeyMeta)
@@ -218,7 +228,7 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 				}
 				val, data, err := fn(ctx, client, getData(m, meta))
 				setVal(m, meta, val)
-				setData(m, meta, data)
+				setData(ctx, m, meta, data)
 				setErr(m, meta, err)
 			})
 		case func(context.Context, zongzi.ShardClient, []byte, []byte):
@@ -310,6 +320,7 @@ func (h *hostModule) ContextCopy(dst, src context.Context) context.Context {
 	if v := src.Value(ctxKeyMeta); v != nil {
 		dst = context.WithValue(dst, ctxKeyMeta, v.(*meta))
 		dst = context.WithValue(dst, ctxKeyStreamList, newStreamList())
+		dst = context.WithValue(dst, ctxKeyBuffer, &bytes.Buffer{})
 	}
 	return dst
 }
@@ -385,15 +396,15 @@ func getVal(m api.Module, meta *meta) (val uint64) {
 	return readUint64(m, meta.ptrVal)
 }
 
-func setData(m api.Module, meta *meta, b []byte) error {
+func setData(ctx context.Context, m api.Module, meta *meta, b []byte) context.Context {
 	buf := dataBuf(m, meta)
-	if len(b) > cap(buf) {
-		writeUint32(m, meta.ptrDataLen, 0)
-		return ErrMessageTooLarge
+	if n := copy(buf[:cap(buf)], b); n < len(b) {
+		buf := get[*bytes.Buffer](ctx, ctxKeyBuffer)
+		buf.Reset()
+		buf.Write(b[n:])
 	}
-	copy(buf[:len(b)], b)
 	writeUint32(m, meta.ptrDataLen, uint32(len(b)))
-	return nil
+	return ctx
 }
 
 func errBuf(m api.Module, meta *meta) []byte {
