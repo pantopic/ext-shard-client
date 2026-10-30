@@ -3,7 +3,7 @@ module github.com/pantopic/ext-shard-client/host-wazero
 go 1.25.1
 
 require (
-	github.com/logbn/zongzi v0.0.20
+	github.com/logbn/zongzi v0.0.22
 	github.com/pantopic/ext-cluster/host-wazero v0.0.1
 	github.com/pantopic/wazero-pool v0.0.6
 	github.com/tetratelabs/wazero v1.12.0
@@ -35,10 +35,10 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/memberlist v0.3.1 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lni/dragonboat/v4 v4.0.0-20231222133740-1d6e2d76cd57 // indirect
+	github.com/lni/dragonboat/v4 v4.0.0-20250723143628-076c7f6497dc // indirect
 	github.com/lni/goutils v1.4.0 // indirect
 	github.com/lni/vfs v0.2.1-0.20220616104132-8852fd867376 // indirect
 	github.com/miekg/dns v1.1.26 // indirect
