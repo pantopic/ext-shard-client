@@ -38,6 +38,18 @@ pub const Client = struct {
         };
     }
 
+    pub fn ReadAsync(self: Client, name: []const u8, query: []const u8, stale: bool) errors.Error!void {
+        abi.setComponentName(self.component_name);
+        abi.setShardName(self.shard_name);
+        abi.setStreamName(name);
+        abi.setData(query);
+        if (stale) {
+            abi.async_read_local();
+        } else {
+            abi.async_read();
+        }
+    }
+
     pub fn Apply(self: Client, cmd: []const u8) ApplyResult {
         abi.setComponentName(self.component_name);
         abi.setShardName(self.shard_name);
@@ -50,19 +62,7 @@ pub const Client = struct {
         };
     }
 
-    pub fn AsyncRead(self: Client, query: []const u8, name: []const u8, stale: bool) errors.Error!void {
-        abi.setComponentName(self.component_name);
-        abi.setShardName(self.shard_name);
-        abi.setStreamName(name);
-        abi.setData(query);
-        if (stale) {
-            abi.async_read_local();
-        } else {
-            abi.async_read();
-        }
-    }
-
-    pub fn AsyncApply(self: Client, cmd: []const u8, name: []const u8) errors.Error!void {
+    pub fn ApplyAsync(self: Client, name: []const u8, cmd: []const u8) errors.Error!void {
         abi.setComponentName(self.component_name);
         abi.setShardName(self.shard_name);
         abi.setStreamName(name);
