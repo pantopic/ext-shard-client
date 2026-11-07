@@ -105,25 +105,26 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		"__shard_client_apply": func(ctx context.Context, client zongzi.ShardClient, cmd []byte) (val uint64, res []byte, err error) {
 			return client.Apply(ctx, cmd)
 		},
-		"__shard_client_read": func(ctx context.Context, client zongzi.ShardClient, query []byte) (val uint64, res []byte, err error) {
-			return client.Read(ctx, query, false)
-		},
-		"__shard_client_read_local": func(ctx context.Context, client zongzi.ShardClient, query []byte) (val uint64, res []byte, err error) {
-			return client.Read(ctx, query, true)
-		},
-		"__shard_client_async_apply": func(ctx context.Context, client zongzi.ShardClient, cmd, name []byte) {
+		"__shard_client_apply_async": func(ctx context.Context, client zongzi.ShardClient, name, cmd []byte) {
 			go func() {
 				val, data, err := client.Apply(ctx, cmd)
 				asyncRecv(ctx, name, val, data, err)
 			}()
 		},
-		"__shard_client_async_read": func(ctx context.Context, client zongzi.ShardClient, query, name []byte) {
+		"__shard_client_read": func(ctx context.Context, client zongzi.ShardClient, query []byte) (val uint64, res []byte, err error) {
+			return client.Read(ctx, query, false)
+		},
+		"__shard_client_read_async": func(ctx context.Context, client zongzi.ShardClient, name, query []byte) {
 			go func() {
+				log.Printf(`__shard_client_read_async %s %x %#v`, string(name), len(query), client)
 				val, data, err := client.Read(ctx, query, false)
 				asyncRecv(ctx, name, val, data, err)
 			}()
 		},
-		"__shard_client_async_read_local": func(ctx context.Context, client zongzi.ShardClient, query, name []byte) {
+		"__shard_client_read_local": func(ctx context.Context, client zongzi.ShardClient, query []byte) (val uint64, res []byte, err error) {
+			return client.Read(ctx, query, true)
+		},
+		"__shard_client_read_local_async": func(ctx context.Context, client zongzi.ShardClient, name, query []byte) {
 			go func() {
 				val, data, err := client.Read(ctx, query, true)
 				asyncRecv(ctx, name, val, data, err)
@@ -224,7 +225,10 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 				)
 				client := h.agent.ClientByName(shardName, zongzi.WithWriteToLeader())
 				if client == nil {
-					panic(`a: ` + shardName)
+					setVal(m, meta, 0)
+					setData(ctx, m, meta, nil)
+					setErr(m, meta, fmt.Errorf("%w: %s", ErrShardClientNotFound, shardName))
+					return
 				}
 				val, data, err := fn(ctx, client, getData(m, meta))
 				setVal(m, meta, val)
@@ -242,9 +246,15 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 				)
 				client := h.agent.ClientByName(shardName, zongzi.WithWriteToLeader())
 				if client == nil {
-					panic(`a: ` + shardName)
+					setErr(m, meta, fmt.Errorf("%w: %s", ErrShardClientNotFound, shardName))
+					setVal(m, meta, 0)
+					setData(ctx, m, meta, nil)
+					return
 				}
-				fn(ctx, client, getDataCopy(m, meta), getStreamNameCopy(m, meta))
+				fn(ctx, client, getStreamNameCopy(m, meta), getDataCopy(m, meta))
+				setVal(m, meta, 0)
+				setData(ctx, m, meta, nil)
+				setErr(m, meta, nil)
 			})
 		case func(context.Context, zongzi.ShardClient, []byte) (err error):
 			register(name, func(ctx context.Context, m api.Module, stack []uint64) {
@@ -256,7 +266,15 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 					getShardName(m, meta),
 				)
 				client := h.agent.ClientByName(shardName, zongzi.WithWriteToLeader())
+				if client == nil {
+					setVal(m, meta, 0)
+					setData(ctx, m, meta, nil)
+					setErr(m, meta, fmt.Errorf("%w: %s", ErrShardClientNotFound, shardName))
+					return
+				}
 				err := fn(ctx, client, getStreamName(m, meta))
+				setVal(m, meta, 0)
+				setData(ctx, m, meta, nil)
 				setErr(m, meta, err)
 			})
 		case func(context.Context, []byte, []byte) (err error):

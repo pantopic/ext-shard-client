@@ -134,28 +134,28 @@ func setStreamName(name []byte) {
 func _next()
 
 //go:wasm-module pantopic/ext-shard-client
+//export __shard_client_apply
+func _apply()
+
+//go:wasm-module pantopic/ext-shard-client
+//export __shard_client_apply_async
+func _apply_async()
+
+//go:wasm-module pantopic/ext-shard-client
 //export __shard_client_read
 func _read()
+
+//go:wasm-module pantopic/ext-shard-client
+//export __shard_client_read_async
+func _read_async()
 
 //go:wasm-module pantopic/ext-shard-client
 //export __shard_client_read_local
 func _read_local()
 
 //go:wasm-module pantopic/ext-shard-client
-//export __shard_client_apply
-func _apply()
-
-//go:wasm-module pantopic/ext-shard-client
-//export __shard_client_async_read
-func _async_read()
-
-//go:wasm-module pantopic/ext-shard-client
-//export __shard_client_async_read_local
-func _async_read_local()
-
-//go:wasm-module pantopic/ext-shard-client
-//export __shard_client_async_apply
-func _async_apply()
+//export __shard_client_read_local_async
+func _read_local_async()
 
 //go:wasm-module pantopic/ext-shard-client
 //export __shard_client_stream_open

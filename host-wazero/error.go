@@ -5,8 +5,9 @@ import (
 )
 
 var (
-	ErrStreamNotFound  = fmt.Errorf(`Stream not found`)
-	ErrStreamExists    = fmt.Errorf(`Stream exists`)
-	ErrStreamClosed    = fmt.Errorf(`Stream closed`)
-	ErrMessageTooLarge = fmt.Errorf(`Message too large`)
+	ErrStreamNotFound      = fmt.Errorf(`Stream not found`)
+	ErrStreamExists        = fmt.Errorf(`Stream exists`)
+	ErrStreamClosed        = fmt.Errorf(`Stream closed`)
+	ErrMessageTooLarge     = fmt.Errorf(`Message too large`)
+	ErrShardClientNotFound = fmt.Errorf(`Shard client not found`)
 )

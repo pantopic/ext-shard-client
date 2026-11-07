@@ -22,6 +22,26 @@ pub const Client = struct {
         return .{ .component_name = component_name, .shard_name = shard_name };
     }
 
+    pub fn Apply(self: Client, cmd: []const u8) ApplyResult {
+        abi.setComponentName(self.component_name);
+        abi.setShardName(self.shard_name);
+        abi.setData(cmd);
+        abi.apply();
+        return .{
+            .val = abi.getVal(),
+            .res = abi.getData(),
+            .err = abi.getErr(),
+        };
+    }
+
+    pub fn ApplyAsync(self: Client, name: []const u8, cmd: []const u8) errors.Error!void {
+        abi.setComponentName(self.component_name);
+        abi.setShardName(self.shard_name);
+        abi.setStreamName(name);
+        abi.setData(cmd);
+        abi.apply_async();
+    }
+
     pub fn Read(self: Client, query: []const u8, stale: bool) ReadResult {
         abi.setComponentName(self.component_name);
         abi.setShardName(self.shard_name);
@@ -44,30 +64,10 @@ pub const Client = struct {
         abi.setStreamName(name);
         abi.setData(query);
         if (stale) {
-            abi.async_read_local();
+            abi.read_local_async();
         } else {
-            abi.async_read();
+            abi.read_async();
         }
-    }
-
-    pub fn Apply(self: Client, cmd: []const u8) ApplyResult {
-        abi.setComponentName(self.component_name);
-        abi.setShardName(self.shard_name);
-        abi.setData(cmd);
-        abi.apply();
-        return .{
-            .val = abi.getVal(),
-            .res = abi.getData(),
-            .err = abi.getErr(),
-        };
-    }
-
-    pub fn ApplyAsync(self: Client, name: []const u8, cmd: []const u8) errors.Error!void {
-        abi.setComponentName(self.component_name);
-        abi.setShardName(self.shard_name);
-        abi.setStreamName(name);
-        abi.setData(cmd);
-        abi.async_apply();
     }
 
     pub fn StreamOpen(self: Client, name: []const u8) errors.Error!void {

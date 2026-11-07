@@ -21,16 +21,17 @@ func (c Client) Read(query []byte, stale bool) (val uint64, res []byte, err erro
 	return getVal(), getData(), getErr()
 }
 
-func (c Client) ReadAsync(name, query []byte, stale bool) {
+func (c Client) ReadAsync(name, query []byte, stale bool) error {
 	setComponentName(c.componentName)
 	setShardName(c.shardName)
 	setStreamName(name)
 	setData(query)
 	if stale {
-		_async_read_local()
+		_read_local_async()
 	} else {
-		_async_read()
+		_read_async()
 	}
+	return getErr()
 }
 
 func (c Client) Apply(cmd []byte) (val uint64, res []byte, err error) {
@@ -41,12 +42,13 @@ func (c Client) Apply(cmd []byte) (val uint64, res []byte, err error) {
 	return getVal(), getData(), getErr()
 }
 
-func (c Client) ApplyAsync(name, cmd []byte) {
+func (c Client) ApplyAsync(name, cmd []byte) error {
 	setComponentName(c.componentName)
 	setShardName(c.shardName)
 	setStreamName(name)
 	setData(cmd)
-	_async_apply()
+	_apply_async()
+	return getErr()
 }
 
 func (c Client) StreamOpen(name []byte) (err error) {
