@@ -116,7 +116,6 @@ func (h *hostModule) Register(ctx context.Context, r wazero.Runtime) (err error)
 		},
 		"__shard_client_read_async": func(ctx context.Context, client zongzi.ShardClient, name, query []byte) {
 			go func() {
-				log.Printf(`__shard_client_read_async %s %x %#v`, string(name), len(query), client)
 				val, data, err := client.Read(ctx, query, false)
 				asyncRecv(ctx, name, val, data, err)
 			}()
